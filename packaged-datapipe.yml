@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  DataStream:
+    Properties:
+      Name: datastream
+      ShardCount: 1
+      Tags:
+      - Key: Project
+        Value: SEIS665
+    Type: AWS::Kinesis::Stream
+  DatalogFunction:
+    Properties:
+      CodeUri: s3://serverless-datapipe-stah2531/704ca39a50e6ceb915fb91412f4207e7
+      Events:
+        StreamData:
+          Properties:
+            BatchSize: 50
+            StartingPosition: TRIM_HORIZON
+            Stream:
+              Fn::GetAtt:
+              - DataStream
+              - Arn
+          Type: Kinesis
+      Handler: datalog.lambda_handler
+      MemorySize: 256
+      Policies:
+      - AWSLambdaKinesisExecutionRole
+      Runtime: python3.6
+      Timeout: 15
+    Type: AWS::Serverless::Function
+  DatapipeTable:
+    Properties:
+      PrimaryKey:
+        Name: id
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      SSESpecification:
+        SSEEnabled: true
+    Type: AWS::Serverless::SimpleTable
+  DatastoreFunction:
+    Properties:
+      CodeUri: s3://serverless-datapipe-stah2531/3f0763384fc72fe6ac2d88b240614b08
+      Environment:
+        Variables:
+          TABLE_NAME:
+            Fn::GetAtt:
+            - DatapipeTable
+            - Arn
+      Events:
+        StreamData:
+          Properties:
+            BatchSize: 50
+            StartingPosition: TRIM_HORIZON
+            Stream:
+              Fn::GetAtt:
+              - DataStream
+              - Arn
+          Type: Kinesis
+      Handler: datastore.lambda_handler
+      MemorySize: 256
+      Policies:
+      - AWSLambdaFullAccess
+      Runtime: python3.6
+      Timeout: 15
+    Type: AWS::Serverless::Function
+Transform: AWS::Serverless-2016-10-31
